@@ -23,7 +23,7 @@ jobs:
           python-version: '3.12'
 
       - name: Build wheel from source archive
-        run: python tools/build.py 
+        run: python tools/build.py
       - name: Verify release artifacts
         run: |
           python tools/verify.py dist
