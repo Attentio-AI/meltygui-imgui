@@ -12,9 +12,20 @@ uv pip install meltygui-imgui
 import meltygui_imgui
 ```
 
-The first release is **2.0.0.post1**, supporting Linux x86-64, CPython 3.12 and
-glibc 2.28 or newer. It installs `meltygui_imgui` without overwriting the upstream
-`imgui` package. Other platforms and Python versions are not supported yet.
+The current release is **2.0.0.post2**, with wheels for Linux x86-64 (glibc 2.28
+or newer) on CPython 3.11, 3.12 and 3.13. It installs `meltygui_imgui` without
+overwriting the upstream `imgui` package. The 3.13 wheel is generated with
+Cython 3.2; 3.11 and 3.12 keep the Cython 0.29 bindings.
+
+### When no wheel matches
+
+On any other platform or Python, pip and uv fall back to the source archive
+without saying that no wheel matched. The build prints a banner naming your
+platform and the prebuilt targets (installers show it with `-v`, or when the
+build fails). A source build needs a C++ compiler and takes a few minutes. uv
+ignores the upper Python bound, so on a newer Python it also builds from
+source; pip refuses instead. Pass `--only-binary meltygui-imgui` to make a
+missing wheel an error rather than a compilation.
 
 The bundled Dear ImGui and font-helper license notices are included in the artifacts.
 
@@ -48,7 +59,7 @@ Configure a pending GitHub publisher at https://pypi.org/manage/account/publishi
 | Workflow | `release.yml` |
 | Environment | `pypi` |
 
-Then, after the main-branch build passes, create and push `v2.0.0.post1`.
+Then, after the main-branch build passes, create and push `v2.0.0.post2`.
 No API token belongs in this repository.
 
 ## Licenses and changes

@@ -30,10 +30,11 @@ jobs:
           uvx --from twine==7.0.0 twine check --strict dist/*.whl dist/*.tar.gz
       - name: Test isolated wheel installation
         run: |
-          uv venv "$RUNNER_TEMP/wheel-test" --python 3.12
-          uv pip install --python "$RUNNER_TEMP/wheel-test/bin/python" dist/*.whl
-
-          "$RUNNER_TEMP/wheel-test/bin/python" -I tools/smoke.py
+          for version in 3.11 3.12 3.13; do
+            uv venv "$RUNNER_TEMP/wheel-test-$version" --python "$version"
+            uv pip install --python "$RUNNER_TEMP/wheel-test-$version/bin/python" --only-binary meltygui-imgui --find-links dist meltygui-imgui==2.0.0.post2
+            "$RUNNER_TEMP/wheel-test-$version/bin/python" -I tools/smoke.py
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: release

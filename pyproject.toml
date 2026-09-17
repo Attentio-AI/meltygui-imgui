@@ -1,4 +1,6 @@
 [build-system]
-requires = ["Cython==0.29.37", "PyOpenGL==3.1.10", "glfw==2.10.0",
+# Cython 0.29 cannot target CPython 3.13; the validated 3.11/3.12 bindings keep it.
+requires = ["Cython==0.29.37; python_version < '3.13'", "Cython==3.2.4; python_version >= '3.13'",
+            "PyOpenGL==3.1.10", "glfw==2.10.0",
             "wheel==0.45.1", "click==8.1.8", "setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"

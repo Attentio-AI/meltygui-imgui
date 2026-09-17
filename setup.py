@@ -26,6 +26,23 @@ if _CYTHONIZE_WITH_COVERAGE and not USE_CYTHON:
     )
 
 
+PREBUILT_WHEELS = "Linux x86-64 (glibc 2.28+), CPython 3.11, 3.12 and 3.13"
+COMPILING_COMMANDS = {"bdist_wheel", "build_ext", "build", "install", "develop", "editable_wheel"}
+
+# Installers run this file only when no prebuilt wheel matches: say so.
+# Release builds set MELTYGUI_IMGUI_RELEASE_BUILD=1 to stay quiet.
+if COMPILING_COMMANDS.intersection(sys.argv) and not os.environ.get("MELTYGUI_IMGUI_RELEASE_BUILD"):
+    import platform
+    print("""{rule}
+meltygui-imgui: no prebuilt wheel matches this platform
+  this platform:   {system} {machine}, {implementation} {version}
+  prebuilt wheels: {prebuilt}
+Compiling from source instead (a few minutes). This needs a C++ compiler.
+{rule}""".format(rule="*" * 72, system=platform.system(), machine=platform.machine(),
+                 implementation=platform.python_implementation(), version=platform.python_version(),
+                 prebuilt=PREBUILT_WHEELS), file=sys.stderr, flush=True)
+
+
 def read(filename):
     with open(filename, 'r') as file_handle:
         return file_handle.read()
@@ -75,6 +92,14 @@ else:
     compiler_directives = {}
     cythonize_opts = {}
     general_macros = []
+
+if USE_CYTHON:
+    import Cython
+    if int(Cython.__version__.split('.')[0]) >= 3:
+        # The bindings predate Cython 3: keep its callbacks' implicit noexcept
+        # and the Python 2 style semantics they were written against.
+        compiler_directives['legacy_implicit_noexcept'] = True
+        compiler_directives['language_level'] = 2
 
 
 def extension_sources(path):
@@ -149,8 +174,8 @@ EXTENSIONS = [
 
 setup(
     name="meltygui-imgui",
-    version="2.0.0.post1",
-    python_requires=">=3.12,<3.13",
+    version="2.0.0.post2",
+    python_requires=">=3.11,<3.14",
     packages=find_packages('.'),
 
     author=u'Michał Jaworski',
@@ -175,7 +200,9 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
 
+        'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
 
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Cython',

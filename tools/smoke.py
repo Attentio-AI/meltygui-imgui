@@ -4,7 +4,7 @@ import importlib.util
 
 import meltygui_imgui as imgui
 
-assert importlib.metadata.version('meltygui-imgui') == '2.0.0.post1'
+assert importlib.metadata.version('meltygui-imgui') == '2.0.0.post2'
 assert importlib.util.find_spec('imgui') is None
 context = imgui.create_context()
 try:
