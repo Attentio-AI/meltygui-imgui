@@ -26,7 +26,7 @@ if _CYTHONIZE_WITH_COVERAGE and not USE_CYTHON:
     )
 
 
-PREBUILT_WHEELS = "Linux x86-64 (glibc 2.28+), CPython 3.11, 3.12 and 3.13"
+PREBUILT_WHEELS = "Linux x86-64 (glibc 2.28+) and Windows x86-64, CPython 3.11, 3.12 and 3.13"
 COMPILING_COMMANDS = {"bdist_wheel", "build_ext", "build", "install", "develop", "editable_wheel"}
 
 # Installers run this file only when no prebuilt wheel matches: say so.
@@ -174,7 +174,7 @@ EXTENSIONS = [
 
 setup(
     name="meltygui-imgui",
-    version="2.0.0.post2",
+    version="2.0.0.post3",
     python_requires=">=3.11,<3.14",
     packages=find_packages('.'),
 
@@ -208,6 +208,7 @@ setup(
         'Programming Language :: Cython',
 
         'Operating System :: POSIX :: Linux',
+        'Operating System :: Microsoft :: Windows',
 
         'Topic :: Games/Entertainment',
     ],
