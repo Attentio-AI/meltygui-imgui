@@ -174,7 +174,7 @@ EXTENSIONS = [
 
 setup(
     name="meltygui-imgui",
-    version="2.0.0.post3",
+    version="2.0.1",
     python_requires=">=3.11,<3.14",
     packages=find_packages('.'),
 
