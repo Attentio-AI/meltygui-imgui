@@ -2,12 +2,18 @@
 from email.parser import BytesParser
 from pathlib import Path
 import argparse
+import ast
 import os
 import tarfile
 import zipfile
 
 KIND = "imgui"
-VERSION = "2.0.0.post3"
+# Read setup metadata without executing the native build configuration.
+_SETUP = ast.parse((Path(__file__).resolve().parents[1] / "setup.py").read_text())
+VERSION = next(ast.literal_eval(keyword.value) for node in ast.walk(_SETUP)
+               if isinstance(node, ast.Call) and (isinstance(node.func, ast.Name) and node.func.id == "setup"
+                   or isinstance(node.func, ast.Attribute) and node.func.attr == "setup")
+               for keyword in node.keywords if keyword.arg == "version")
 PYTHONS = ["cp311", "cp312", "cp313"]
 NAMESPACE = "meltygui_" + KIND
 # platform -> (wheel platform tag prefix, extension module suffix)
@@ -42,6 +48,7 @@ def verify_wheel(wheel, platform):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=VERSION)
     parser.add_argument("directory", type=Path, nargs="?", default=Path("dist"))
     parser.add_argument("--platform", choices=sorted(PLATFORMS), nargs="+", default=["linux"],
                         help="Platforms whose wheels the directory must hold")

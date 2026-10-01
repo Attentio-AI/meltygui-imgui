@@ -1,10 +1,15 @@
 """Exercise an installed binding without a display server."""
+import argparse
 import importlib.metadata
 import importlib.util
 
 import meltygui_imgui as imgui
 
-assert importlib.metadata.version('meltygui-imgui') == '2.0.0.post3'
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--expected-version')
+args = parser.parse_args()
+if args.expected_version:
+    assert importlib.metadata.version('meltygui-imgui') == args.expected_version
 assert importlib.util.find_spec('imgui') is None
 context = imgui.create_context()
 try:

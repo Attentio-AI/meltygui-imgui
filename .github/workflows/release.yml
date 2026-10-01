@@ -10,6 +10,14 @@ on:
         description: Publish the verified artifacts to PyPI
         type: boolean
         default: false
+      expected_version:
+        description: Package version confirmed by the release UI
+        type: string
+        default: ''
+      expected_sha:
+        description: Pushed source commit confirmed by the release UI
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -17,11 +25,22 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.11.19'
           python-version: '3.12'
 
+      - name: Check confirmed release version
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          actual_version=$(python tools/verify.py --version)
+          if [ -n "$EXPECTED_VERSION" ] && [ "$EXPECTED_VERSION" != "$actual_version" ]; then
+            echo "Confirmed $EXPECTED_VERSION but source states $actual_version"
+            exit 1
+          fi
       - name: Build wheel from source archive
         run: python tools/build.py
       - name: Verify release artifacts
@@ -30,10 +49,12 @@ jobs:
           uvx --from twine==7.0.0 twine check --strict dist/*.whl dist/*.tar.gz
       - name: Test isolated wheel installation
         run: |
+          package_version=$(python tools/verify.py --version)
           for version in 3.11 3.12 3.13; do
+            wheel=(dist/*-cp${version/./}-*.whl)
             uv venv "$RUNNER_TEMP/wheel-test-$version" --python "$version"
-            uv pip install --python "$RUNNER_TEMP/wheel-test-$version/bin/python" --only-binary meltygui-imgui --find-links dist meltygui-imgui==2.0.0.post3
-            "$RUNNER_TEMP/wheel-test-$version/bin/python" -I tools/smoke.py
+            uv pip install --python "$RUNNER_TEMP/wheel-test-$version/bin/python" "${wheel[@]}"
+            "$RUNNER_TEMP/wheel-test-$version/bin/python" -I tools/smoke.py --expected-version "$package_version"
           done
       - uses: actions/upload-artifact@v4
         with:
@@ -51,6 +72,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.11.19'
@@ -71,10 +94,12 @@ jobs:
           uvx --from twine==7.0.0 twine check --strict dist/*.whl
       - name: Test isolated wheel installation
         run: |
+          package_version=$(python tools/verify.py --version)
           for version in 3.11 3.12 3.13; do
+            wheel=(dist/*-cp${version/./}-*.whl)
             uv venv "$RUNNER_TEMP/wheel-test-$version" --python "$version"
-            uv pip install --python "$RUNNER_TEMP/wheel-test-$version/Scripts/python.exe" --only-binary meltygui-imgui --find-links dist meltygui-imgui==2.0.0.post3
-            "$RUNNER_TEMP/wheel-test-$version/Scripts/python.exe" -I tools/smoke.py
+            uv pip install --python "$RUNNER_TEMP/wheel-test-$version/Scripts/python.exe" "${wheel[@]}"
+            "$RUNNER_TEMP/wheel-test-$version/Scripts/python.exe" -I tools/smoke.py --expected-version "$package_version"
           done
       - uses: actions/upload-artifact@v4
         with:
