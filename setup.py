@@ -177,6 +177,7 @@ setup(
     version="2.0.1",
     python_requires=">=3.11,<3.14",
     packages=find_packages('.'),
+    package_data={"meltygui_imgui": ["*.pyi", "py.typed"]},
 
     author=u'Michał Jaworski',
     author_email='swistakm@gmail.com',

@@ -18,6 +18,7 @@ PYTHONS = ["cp311", "cp312", "cp313"]
 NAMESPACE = "meltygui_" + KIND
 # platform -> (wheel platform tag prefix, extension module suffix)
 PLATFORMS = {"linux": ("manylinux", ".so"), "windows": ("win_amd64", ".pyd")}
+TYPING_FILES = {"core.pyi", "internal.pyi", "py.typed"}
 
 
 def verify_wheel(wheel, platform):
@@ -33,6 +34,9 @@ def verify_wheel(wheel, platform):
         assert any(n.startswith(NAMESPACE + "/") for n in names)
         assert not any(n.startswith(KIND + "/") for n in names), "Must not overwrite upstream package"
         assert any(n.endswith(extension) for n in names)
+        assert all(f"{NAMESPACE}/{name}" in names for name in TYPING_FILES), "Missing IDE stubs"
+        for name in TYPING_FILES - {"py.typed"}:
+            ast.parse(archive.read(f"{NAMESPACE}/{name}"))
         if platform == "windows":
             # CPython ships vcruntime140 but not the C++ runtime the extension links.
             assert any(".libs/msvcp140" in n for n in names)
@@ -70,6 +74,7 @@ def main():
         assert any(n.endswith("/UPSTREAM.json") for n in names)
         assert any(n.endswith("/LICENSE") for n in names)
         assert any("/" + NAMESPACE + "/" in n for n in names)
+        assert all(any(n.endswith(f"/{NAMESPACE}/{name}") for n in names) for name in TYPING_FILES)
     print(f"Verified {metadata['Name']} {VERSION} for {', '.join(args.platform)}: wheels, sdist, namespace and licenses")
 
 

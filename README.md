@@ -29,6 +29,30 @@ missing wheel an error rather than a compilation.
 
 The bundled Dear ImGui and font-helper license notices are included in the artifacts.
 
+## IntelliJ IDEA / PyCharm
+
+The package ships `.pyi` signatures for its native extensions, including the
+top-level re-exports. These give the IDE the real Python keyword names, such as
+`begin(label, closable=False, flags=0)`, instead of names reconstructed from
+Cython's C-style docstrings (`str_label`, `ImGuiWindowFlags_flags`). Runtime
+functions and calling conventions are unchanged. Types that are not fully
+modeled remain `Any` to avoid rejecting supported conversions and callbacks.
+The stubs also retain the positional-only restrictions of Cython 0.29 builds on
+Python 3.11/3.12; Python 3.13 builds use Cython 3's keyword support.
+
+Install the updated package into the IDE's selected Python interpreter. If an
+existing project still shows the old generated skeleton, reload the interpreter
+paths or invalidate the IDE caches and restart.
+
+After editing the Cython API, regenerate the checked-in stubs:
+
+```sh
+uv run --no-project --with Cython==0.29.37 python tools/generate_stubs.py
+```
+
+CI checks for stale stubs and verifies that wheels and the source archive contain
+both `.pyi` files and the `py.typed` marker.
+
 ## Build
 
 Docker is required. The manylinux image and Python build dependencies are pinned.

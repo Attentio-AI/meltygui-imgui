@@ -19,9 +19,9 @@ try:
     width, height, pixels = io.fonts.get_tex_data_as_rgba32()
     assert width > 0 and height > 0 and pixels
     imgui.new_frame()
-    imgui.set_next_window_position(10, 10)
+    imgui.set_next_window_position(x=10, y=10)
     imgui.set_next_window_size(300, 200)
-    imgui.begin('Wheel smoke test')
+    imgui.begin(label='Wheel smoke test', flags=imgui.WINDOW_NO_MOVE)
     imgui.text('MeltyGUI ImGui')
     imgui.end()
     imgui.render()

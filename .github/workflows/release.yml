@@ -41,6 +41,8 @@ jobs:
             echo "Confirmed $EXPECTED_VERSION but source states $actual_version"
             exit 1
           fi
+      - name: Check generated IDE signatures
+        run: uv run --no-project --with Cython==0.29.37 python tools/generate_stubs.py --check
       - name: Build wheel from source archive
         run: python tools/build.py
       - name: Verify release artifacts
@@ -55,6 +57,10 @@ jobs:
             uv venv "$RUNNER_TEMP/wheel-test-$version" --python "$version"
             uv pip install --python "$RUNNER_TEMP/wheel-test-$version/bin/python" "${wheel[@]}"
             "$RUNNER_TEMP/wheel-test-$version/bin/python" -I tools/smoke.py --expected-version "$package_version"
+            if [ "$version" != 3.11 ]; then
+              uv pip install --python "$RUNNER_TEMP/wheel-test-$version/bin/python" pytest==9.1.1 mypy==2.4.0
+              "$RUNNER_TEMP/wheel-test-$version/bin/python" -I -m pytest tests/test_stub_signatures.py
+            fi
           done
       - uses: actions/upload-artifact@v4
         with:

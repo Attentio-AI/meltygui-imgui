@@ -3,6 +3,7 @@ include LICENSE
 
 # Cython sources
 recursive-include meltygui_imgui *.pyx *.pxd
+recursive-include meltygui_imgui *.pyi py.typed
 
 # Cython-generated C++ sources
 recursive-include meltygui_imgui *.cpp *.h
