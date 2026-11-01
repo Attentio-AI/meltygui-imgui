@@ -29,6 +29,18 @@ missing wheel an error rather than a compilation.
 
 The bundled Dear ImGui and font-helper license notices are included in the artifacts.
 
+## Fractional coordinates (2.0.3)
+
+The maintained binding retains fractional mouse, window, scroll and cursor
+positions. Text origins align to physical framebuffer pixels only when drawing,
+restoring crisp 1x text and allowing pixel-sized steps on Retina displays without
+rounding scroll offsets or interaction coordinates. Applications and font sizes
+still use logical coordinates. Rebuild the native extension on
+each target platform when upgrading; copying Python modules is insufficient.
+Hosts that interpolate a dense font atlas can define
+`IMGUI_ENABLE_FRACTIONAL_TEXT`; Hub's iOS Retina runtime does this to retain
+continuous touch scrolling.
+
 ## IntelliJ IDEA / PyCharm
 
 The package ships `.pyi` signatures for its native extensions, including the

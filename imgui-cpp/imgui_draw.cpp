@@ -34,6 +34,7 @@ Index of this file:
 #endif
 
 #include "imgui_internal.h"
+// Melty subpixel coordinates: keep layout/input fractional; align text at rasterization.
 #ifdef IMGUI_ENABLE_FREETYPE
 #include "misc/freetype/imgui_freetype.h"
 #endif
@@ -3469,6 +3470,23 @@ ImVec2 ImFont::CalcTextSizeA(float size, float max_width, float wrap_width, cons
     return text_size;
 }
 
+// Melty text pixel alignment: quantize only the glyph origin, in framebuffer
+// pixels. Layout, scroll offsets and hit testing keep their fractional values.
+static ImVec2 ImFontSnapToPixelGrid(const ImVec2& pos)
+{
+#ifdef IMGUI_ENABLE_FRACTIONAL_TEXT
+    // The iOS runtime opts into continuous motion with its dense font atlas.
+    return pos;
+#else
+    const ImVec2 scale = GImGui ? GImGui->IO.DisplayFramebufferScale : ImVec2(1.0f, 1.0f);
+    const ImVec2 origin = GImGui ? ImGui::GetMainViewport()->Pos : ImVec2(0.0f, 0.0f);
+    const float sx = scale.x > 0.0f ? scale.x : 1.0f;
+    const float sy = scale.y > 0.0f ? scale.y : 1.0f;
+    return ImVec2(origin.x + ImFloorStd((pos.x - origin.x) * sx) / sx,
+                  origin.y + ImFloorStd((pos.y - origin.y) * sy) / sy);
+#endif
+}
+
 void ImFont::RenderChar(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col, ImWchar c) const
 {
     const ImFontGlyph* glyph = FindGlyph(c);
@@ -3477,8 +3495,7 @@ void ImFont::RenderChar(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
     if (glyph->Colored)
         col |= ~IM_COL32_A_MASK;
     float scale = (size >= 0.0f) ? (size / FontSize) : 1.0f;
-    pos.x = IM_FLOOR(pos.x);
-    pos.y = IM_FLOOR(pos.y);
+    pos = ImFontSnapToPixelGrid(pos);
     draw_list->PrimReserve(6, 4);
     draw_list->PrimRectUV(ImVec2(pos.x + glyph->X0 * scale, pos.y + glyph->Y0 * scale), ImVec2(pos.x + glyph->X1 * scale, pos.y + glyph->Y1 * scale), ImVec2(glyph->U0, glyph->V0), ImVec2(glyph->U1, glyph->V1), col);
 }
@@ -3488,9 +3505,8 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
     if (!text_end)
         text_end = text_begin + strlen(text_begin); // ImGui:: functions generally already provides a valid text_end, so this is merely to handle direct calls.
 
-    // Align to be pixel perfect
-    pos.x = IM_FLOOR(pos.x);
-    pos.y = IM_FLOOR(pos.y);
+    // Align glyphs to physical pixels without rounding the logical cursor.
+    pos = ImFontSnapToPixelGrid(pos);
     float x = pos.x;
     float y = pos.y;
     if (y > clip_rect.w)
