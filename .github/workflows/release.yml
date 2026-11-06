@@ -20,13 +20,23 @@ on:
         default: ''
 permissions:
   contents: read
+  actions: read
 jobs:
   build:
+    outputs:
+      prepared_run: ${{ steps.prepared.outputs.run_id }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.expected_sha || github.sha }}
+      - name: Reuse prepared release
+        id: prepared
+        if: inputs.publish || startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.expected_sha || github.sha }}
+        run: python3 tools/prepared_release.py release release-windows
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.11.19'
@@ -42,14 +52,18 @@ jobs:
             exit 1
           fi
       - name: Check generated IDE signatures
+        if: steps.prepared.outputs.run_id == ''
         run: uv run --no-project --with Cython==0.29.37 python tools/generate_stubs.py --check
       - name: Build wheel from source archive
+        if: steps.prepared.outputs.run_id == ''
         run: python tools/build.py
       - name: Verify release artifacts
+        if: steps.prepared.outputs.run_id == ''
         run: |
           python tools/verify.py dist
           uvx --from twine==7.0.0 twine check --strict dist/*.whl dist/*.tar.gz
       - name: Test isolated wheel installation
+        if: steps.prepared.outputs.run_id == ''
         run: |
           package_version=$(python tools/verify.py --version)
           for version in 3.11 3.12 3.13; do
@@ -63,6 +77,7 @@ jobs:
             fi
           done
       - uses: actions/upload-artifact@v4
+        if: steps.prepared.outputs.run_id == ''
         with:
           name: release
           path: |
@@ -72,33 +87,42 @@ jobs:
             dist/auditwheel.txt
   windows:
     needs: build
-    runs-on: windows-2022
+    runs-on: ${{ needs.build.outputs.prepared_run != '' && 'ubuntu-22.04' || 'windows-2022' }}
     defaults:
       run:
         shell: bash
     steps:
+      - name: Reuse prepared Windows artifacts
+        if: needs.build.outputs.prepared_run != ''
+        run: echo "Windows artifacts already verified in run ${{ needs.build.outputs.prepared_run }}"
       - uses: actions/checkout@v4
+        if: needs.build.outputs.prepared_run == ''
         with:
           ref: ${{ inputs.expected_sha || github.sha }}
       - uses: astral-sh/setup-uv@v6
+        if: needs.build.outputs.prepared_run == ''
         with:
           version: '0.11.19'
           python-version: '3.12'
       # The Windows wheels compile the same source archive the Linux job built.
       - uses: actions/download-artifact@v4
+        if: needs.build.outputs.prepared_run == ''
         with:
           name: release
           path: linux
       - name: Build wheels from source archive
+        if: needs.build.outputs.prepared_run == ''
         run: |
           mkdir dist
           cp linux/*.tar.gz dist/
           python tools/build_windows.py
       - name: Verify release artifacts
+        if: needs.build.outputs.prepared_run == ''
         run: |
           python tools/verify.py dist --platform windows
           uvx --from twine==7.0.0 twine check --strict dist/*.whl
       - name: Test isolated wheel installation
+        if: needs.build.outputs.prepared_run == ''
         run: |
           package_version=$(python tools/verify.py --version)
           for version in 3.11 3.12 3.13; do
@@ -108,6 +132,7 @@ jobs:
             "$RUNNER_TEMP/wheel-test-$version/Scripts/python.exe" -I tools/smoke.py --expected-version "$package_version"
           done
       - uses: actions/upload-artifact@v4
+        if: needs.build.outputs.prepared_run == ''
         with:
           name: release-windows
           path: |
@@ -121,10 +146,13 @@ jobs:
     environment: pypi
     permissions:
       contents: read
+      actions: read
       id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.build.outputs.prepared_run }}
           pattern: release*
           merge-multiple: true
           path: dist
