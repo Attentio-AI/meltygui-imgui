@@ -37,6 +37,18 @@ cimport enums
 cimport ansifeed
 cimport internal
 
+cdef extern from "retained_capture.h" namespace "meltygui":
+    bool frame_active()
+    cdef cppclass RetainedCapture:
+        RetainedCapture(const char* key) except +
+        void begin(float width, float height, float x, float y) except +
+        void end() except +
+        int draw_count()
+        bool active_widget()
+        cimgui.ImDrawList* draw_at(int index) except +
+        cimgui.ImDrawList draw
+        bool active
+
 from cpython.version cimport PY_MAJOR_VERSION
 
 # todo: find a way to cimport this directly from imgui.h
@@ -3922,6 +3934,101 @@ def render():
     .. wraps::
         void Render()
     """
+    cimgui.Render()
+
+
+def is_frame_active():
+    """Whether the host context has begun its one ImGui frame."""
+    return frame_active()
+
+
+cdef class DrawCapture:
+    """An owned draw buffer scoped inside the current host ImGui context.
+
+    begin/end never create a context or call NewFrame/Render. Positions inside
+    the scope are local to the view; origin translates the shared mouse/nav data.
+    Unfinished child/group/style scopes are unwound before restoring the host.
+    """
+    cdef RetainedCapture* _capture
+
+    def __cinit__(self, identity=None):
+        cdef bytes key
+        if cimgui.GetCurrentContext() == NULL:
+            raise RuntimeError('DrawCapture requires the host ImGui context')
+        key = str(identity if identity is not None else id(self)).encode('utf-8')
+        self._capture = new RetainedCapture(key)
+
+    def begin(self, float width, float height, float x=0, float y=0):
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        self._capture.begin(width, height, x, y)
+
+    def end(self):
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        self._capture.end()
+
+    @property
+    def draw_list(self):
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        return _DrawList.from_ptr(&self._capture.draw)
+
+    @property
+    def draw_lists(self):
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        return [_DrawList.from_ptr(self._capture.draw_at(index))
+                for index in range(self._capture.draw_count())]
+
+    @property
+    def active_widget(self):
+        """Whether this scope owns the live widget, excluding nested captures."""
+        if self._capture == NULL:
+            return False
+        return self._capture.active_widget()
+
+    def close(self):
+        if self._capture != NULL:
+            if self._capture.active:
+                self._capture.end()
+            del self._capture
+            self._capture = NULL
+
+    def __dealloc__(self):
+        if self._capture != NULL:
+            del self._capture
+
+
+def begin_retained_frame(float width, float height):
+    """Start a retained local drawing frame in the current context.
+
+    The caller owns context selection, IO delivery and texture keepalives across
+    nested captures. This batches the ordinary frame/window/clip operations;
+    it does not share contexts or skip Dear ImGui's frame lifecycle.
+    """
+    get_current_context()._keepalive_cache.clear()
+    cimgui.NewFrame()
+    cimgui.SetNextWindowPos(_cast_args_ImVec2(0, 0), 0, _cast_args_ImVec2(0, 0))
+    cimgui.SetNextWindowSize(_cast_args_ImVec2(width, height), 0)
+    cimgui.Begin("retained-body", NULL,
+        enums.ImGuiWindowFlags_NoTitleBar | enums.ImGuiWindowFlags_NoResize |
+        enums.ImGuiWindowFlags_NoMove | enums.ImGuiWindowFlags_NoScrollbar |
+        enums.ImGuiWindowFlags_NoSavedSettings | enums.ImGuiWindowFlags_NoScrollWithMouse |
+        enums.ImGuiWindowFlags_NoBackground)
+    cimgui.SetCursorScreenPos(_cast_args_ImVec2(0, 0))
+    cimgui.GetWindowDrawList().PushClipRect(
+        _cast_args_ImVec2(0, 0), _cast_args_ImVec2(width, height), False)
+
+
+def end_retained_frame():
+    """Close the retained drawing clip/window and produce this context's draw data.
+
+    Read widget/input status before this call, just as before End and Render.
+    Texture keepalives remain owned until the caller captures the draw data.
+    """
+    cimgui.GetWindowDrawList().PopClipRect()
+    cimgui.End()
     cimgui.Render()
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-VERSION = (2, 0, 0)  # PEP 386
+VERSION = (2, 0, 4)  # PEP 386
 __version__ = ".".join([str(x) for x in VERSION])
 
 from meltygui_imgui.core import *  # noqa

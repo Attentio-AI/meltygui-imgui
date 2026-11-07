@@ -41,6 +41,25 @@ Hosts that interpolate a dense font atlas can define
 `IMGUI_ENABLE_FRACTIONAL_TEXT`; Hub's iOS Retina runtime does this to retain
 continuous touch scrolling.
 
+## Shared-context draw capture
+
+The 2.0.4 binding adds `DrawCapture(identity)` and `is_frame_active()` for MeltyGUI's
+retained renderer. A capture owns draw buffers, while widget IDs, keyboard/text
+state, clipboard and frame lifecycle remain in the host ImGui context. `begin`
+temporarily provides local view coordinates; `end` restores the parent layout,
+input coordinates and unfinished child/style scopes. Read `draw_lists` before
+reusing or closing the capture. The host calls `new_frame` and `render` once.
+
+```python
+capture = imgui.DrawCapture("stable-view-key")
+capture.begin(width, height, origin_x, origin_y)
+try:
+    draw_view()
+finally:
+    capture.end()
+# Copy capture.draw_lists into the renderer's owned command packets.
+```
+
 ## IntelliJ IDEA / PyCharm
 
 The package ships `.pyi` signatures for its native extensions, including the

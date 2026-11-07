@@ -83,8 +83,9 @@ with imgui.styled(variable=imgui.STYLE_ALPHA, value=0.5):
 '''
     path = tmp_path / "keywords.py"
     path.write_text(code)
-    command = [sys.executable, "-I", "-m", "mypy", "--follow-imports=silent", str(path)]
-    result = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True)
+    command = [sys.executable, "-I", "-m", "mypy", "--follow-imports=silent",
+               "--cache-dir", str(tmp_path / "mypy-cache"), str(path)]
+    result = subprocess.run(command, close_fds=False, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     # Prove that success wasn't just due to treating the whole extension as Any.
     path.write_text(code + '\nimgui.begin(label="Bad", ImGuiWindowFlags_flags=0)\n')
