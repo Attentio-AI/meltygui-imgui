@@ -123,6 +123,28 @@ struct RetainedCapture {
         capture_top() = this;
         active = true;
     }
+    // One retained view in a single call: the capture scope, the view's ID
+    // scope and the group that measures its content.
+    void begin_view(float width, float height, float x, float y, const char* label) {
+        begin(width, height, x, y);
+        ImGui::PushID(label);
+        ImGui::BeginGroup();
+    }
+    // Close the group and ID scope and report the measured content size and
+    // whether this view owns the live widget. With end_if_idle, a view without
+    // a live widget also ends its capture here; the return value says whether
+    // it did. Otherwise the caller reads item/input state and calls end().
+    bool end_view(bool end_if_idle, float* width, float* height, bool* live) {
+        if (!active || capture_top() != this || ImGui::GetCurrentContext() != context)
+            throw std::runtime_error("Unbalanced DrawCapture scope");
+        ImGui::EndGroup();
+        ImGui::PopID();
+        ImVec2 measured = ImGui::GetItemRectSize();
+        *width = measured.x; *height = measured.y;
+        *live = active_widget();
+        if (end_if_idle && !*live) { end(); return true; }
+        return false;
+    }
     void detach_child(ImGuiWindow* child) {
         if (std::find(handled_children.begin(), handled_children.end(), child) != handled_children.end()) return;
         if (child->DrawList->IdxBuffer.Size) {

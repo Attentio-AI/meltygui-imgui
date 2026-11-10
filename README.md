@@ -60,6 +60,14 @@ finally:
 # Copy capture.draw_lists into the renderer's owned command packets.
 ```
 
+2.0.5 adds a fused scope for one retained view. `begin_view(width, height, x, y,
+label)` is `begin` plus `push_id(label)` and `begin_group()`. `end_view(end_if_idle)`
+closes the group and ID scope and returns `(content_width, content_height, live,
+buffers)`; a view without a live widget also ends its capture there when
+`end_if_idle` is set, otherwise the caller reads item and input state, calls `end()`
+and then `buffers()`. `buffers()` gives the address and element count of each draw
+list's command, vertex and index buffer, for a renderer that copies them natively.
+
 ## IntelliJ IDEA / PyCharm
 
 The package ships `.pyi` signatures for its native extensions, including the

@@ -43,6 +43,8 @@ cdef extern from "retained_capture.h" namespace "meltygui":
         RetainedCapture(const char* key) except +
         void begin(float width, float height, float x, float y) except +
         void end() except +
+        void begin_view(float width, float height, float x, float y, const char* label) except +
+        bool end_view(bool end_if_idle, float* width, float* height, bool* live) except +
         int draw_count()
         bool active_widget()
         cimgui.ImDrawList* draw_at(int index) except +
@@ -3967,6 +3969,47 @@ cdef class DrawCapture:
         if self._capture == NULL:
             raise RuntimeError('Closed DrawCapture')
         self._capture.end()
+
+    def begin_view(self, float width, float height, float x, float y, bytes label):
+        """begin() plus the view's ID scope (push_id of ``label``) and the group
+        that measures its content, in one call."""
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        self._capture.begin_view(width, height, x, y, label)
+
+    def end_view(self, bint end_if_idle):
+        """Close the group and ID scope opened by begin_view.
+
+        Returns ``(content_width, content_height, live, buffers)``. ``live`` is
+        active_widget. With ``end_if_idle`` a view without a live widget also
+        ends its capture and ``buffers`` is what buffers() returns; otherwise
+        ``buffers`` is None, the capture stays open for item and input queries,
+        and the caller calls end() and then buffers().
+        """
+        cdef float width = 0
+        cdef float height = 0
+        cdef bool live = False
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        if self._capture.end_view(end_if_idle, &width, &height, &live):
+            return width, height, live, self.buffers()
+        return width, height, live, None
+
+    def buffers(self):
+        """Addresses and element counts of every captured draw list, each as
+        ``(commands, command_count, vertices, vertex_count, indices,
+        index_count)``. Valid until this capture begins again or closes."""
+        cdef int index
+        cdef cimgui.ImDrawList* draw
+        if self._capture == NULL:
+            raise RuntimeError('Closed DrawCapture')
+        result = []
+        for index in range(self._capture.draw_count()):
+            draw = self._capture.draw_at(index)
+            result.append((<uintptr_t>draw.CmdBuffer.Data, draw.CmdBuffer.Size,
+                           <uintptr_t>draw.VtxBuffer.Data, draw.VtxBuffer.Size,
+                           <uintptr_t>draw.IdxBuffer.Data, draw.IdxBuffer.Size))
+        return result
 
     @property
     def draw_list(self):
