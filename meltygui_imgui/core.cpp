@@ -52174,26 +52174,26 @@ static PyObject *__pyx_pf_14meltygui_imgui_4core_46begin_child(CYTHON_UNUSED PyO
   }
   __pyx_L6:;
   while (1) {
-    __pyx_t_3 = PyInt_Check(__pyx_v_arg); 
-    __pyx_t_4 = (__pyx_t_3 != 0);
-    if (!__pyx_t_4) {
-    } else {
-      __pyx_t_2 = __pyx_t_4;
-      goto __pyx_L12_bool_binop_done;
-    }
-    __pyx_t_4 = PyLong_Check(__pyx_v_arg); 
-    __pyx_t_3 = (__pyx_t_4 != 0);
-    __pyx_t_2 = __pyx_t_3;
-    __pyx_L12_bool_binop_done:;
+    __pyx_t_2 = PyString_Check(__pyx_v_arg); 
     __pyx_t_3 = (__pyx_t_2 != 0);
     if (__pyx_t_3) {
-      if (unlikely(__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_ImGuiID, long, 1, __Pyx_PyInt_From_long, 1, 0, 1) < 0)) __PYX_ERR(0, 4439, __pyx_L1_error)
+      if (unlikely(__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_str, long, 1, __Pyx_PyInt_From_long, 1, 0, 1) < 0)) __PYX_ERR(0, 4439, __pyx_L1_error)
       goto __pyx_L10_break;
     }
-    __pyx_t_3 = PyString_Check(__pyx_v_arg); 
+    __pyx_t_2 = PyInt_Check(__pyx_v_arg); 
+    __pyx_t_4 = (__pyx_t_2 != 0);
+    if (!__pyx_t_4) {
+    } else {
+      __pyx_t_3 = __pyx_t_4;
+      goto __pyx_L13_bool_binop_done;
+    }
+    __pyx_t_4 = PyLong_Check(__pyx_v_arg); 
+    __pyx_t_2 = (__pyx_t_4 != 0);
+    __pyx_t_3 = __pyx_t_2;
+    __pyx_L13_bool_binop_done:;
     __pyx_t_2 = (__pyx_t_3 != 0);
     if (__pyx_t_2) {
-      if (unlikely(__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_str, long, 1, __Pyx_PyInt_From_long, 1, 0, 1) < 0)) __PYX_ERR(0, 4439, __pyx_L1_error)
+      if (unlikely(__Pyx_SetItemInt(__pyx_v_dest_sig, 0, __pyx_n_s_ImGuiID, long, 1, __Pyx_PyInt_From_long, 1, 0, 1) < 0)) __PYX_ERR(0, 4439, __pyx_L1_error)
       goto __pyx_L10_break;
     }
     if (unlikely(__Pyx_SetItemInt(__pyx_v_dest_sig, 0, Py_None, long, 1, __Pyx_PyInt_From_long, 1, 0, 1) < 0)) __PYX_ERR(0, 4439, __pyx_L1_error)
