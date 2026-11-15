@@ -38,6 +38,8 @@ struct RetainedCapture {
     std::vector<std::unique_ptr<ImDrawList>> child_draws;
     std::vector<ImGuiWindow*> handled_children;
     int child_draw_count = 0;
+    std::vector<ImGuiWindow*> begun;    // child windows this capture detached itself, in frame `begun_frame`
+    int begun_frame = -1;
     ImGuiStackSizes stack_sizes;
     ImGuiTable* table_at_begin = nullptr;
     ImGuiTabBar* tab_at_begin = nullptr;
@@ -77,6 +79,7 @@ struct RetainedCapture {
         tab_at_begin = context->CurrentTabBar;
         child_draw_count = 0;
         handled_children.clear();
+        renew_children();
         previous_alive = context->ActiveIdIsAlive;
         child_active = 0;
         context->ActiveIdIsAlive = 0;
@@ -145,6 +148,20 @@ struct RetainedCapture {
         if (end_if_idle && !*live) { end(); return true; }
         return false;
     }
+    // The view runs again in a frame it already ran in (alone for input, then under its resized
+    // parent): its child windows were detached by that run. A second Begin would only append, at
+    // the old size and shifted position, into a draw list no capture collects. Made new for this
+    // frame, they are begun, sized and detached as in the first run.
+    void renew_children() {
+        if (begun_frame != context->FrameCount) { begun.clear(); return; }
+        auto& listed = window->DC.ChildWindows;
+        for (auto* child : begun) {
+            child->LastFrameActive = context->FrameCount - 1;
+            child->BeginCount = 0;      // as NewFrame leaves it: Begin asserts on it
+            listed.find_erase(child);
+        }
+        begun.clear();
+    }
     void detach_child(ImGuiWindow* child) {
         if (std::find(handled_children.begin(), handled_children.end(), child) != handled_children.end()) return;
         if (child->DrawList->IdxBuffer.Size) {
@@ -169,6 +186,7 @@ struct RetainedCapture {
         child->DC.IdealMaxPos = shifted(child->DC.IdealMaxPos, origin);
         for (auto* nested : child->DC.ChildWindows) detach_child(nested);
         handled_children.push_back(child);
+        begun.push_back(child);
     }
     int draw_count() const { return 1 + child_draw_count; }
     bool active_widget() const {
@@ -202,6 +220,7 @@ struct RetainedCapture {
             parent->child_active = context->ActiveId;
         if (!context->ActiveIdIsAlive && previous_alive == context->ActiveId)
             context->ActiveIdIsAlive = previous_alive;
+        begun_frame = context->FrameCount;
         for (int i = layout.ChildWindows.Size; i < window->DC.ChildWindows.Size; ++i)
             detach_child(window->DC.ChildWindows[i]);
         if (parent) parent->handled_children.insert(parent->handled_children.end(), handled_children.begin(), handled_children.end());
