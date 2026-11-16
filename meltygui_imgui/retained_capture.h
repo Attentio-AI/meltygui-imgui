@@ -40,6 +40,7 @@ struct RetainedCapture {
     int child_draw_count = 0;
     std::vector<ImGuiWindow*> begun;    // child windows this capture detached itself, in frame `begun_frame`
     int begun_frame = -1;
+    ImVec2 begun_origin;                // `origin` of that run: where those windows were left
     ImGuiStackSizes stack_sizes;
     ImGuiTable* table_at_begin = nullptr;
     ImGuiTabBar* tab_at_begin = nullptr;
@@ -79,6 +80,7 @@ struct RetainedCapture {
         tab_at_begin = context->CurrentTabBar;
         child_draw_count = 0;
         handled_children.clear();
+        hover_children(shifted(context->IO.MousePos, parent_origin));
         renew_children();
         previous_alive = context->ActiveIdIsAlive;
         child_active = 0;
@@ -147,6 +149,22 @@ struct RetainedCapture {
         *live = active_widget();
         if (end_if_idle && !*live) { end(); return true; }
         return false;
+    }
+    // The view did not run in the last frame, so its child windows were not active in it and NewFrame
+    // did not look for the pointer in them: it found this capture's window, and no item in a child
+    // would be hovered in this run (a press on a still pointer, the release after it). The pointer
+    // (in the host's coordinates) is given to the innermost of them it is over, the later of two siblings.
+    void hover_children(ImVec2 pointer) {
+        if (begun.empty() || begun_frame >= context->FrameCount - 1 || context->HoveredWindow != window) return;
+        ImVec2 moved(origin.x - begun_origin.x, origin.y - begun_origin.y);
+        ImGuiWindow* over = nullptr;
+        for (auto* child : begun) {
+            if (child->Flags & ImGuiWindowFlags_NoMouseInputs) continue;
+            ImRect rect = child->OuterRectClipped;
+            shift_rect(rect, moved);
+            if (rect.Contains(pointer) && (!over || !ImGui::IsWindowChildOf(over, child))) over = child;
+        }
+        if (over) context->HoveredWindow = context->HoveredWindowUnderMovingWindow = over;
     }
     // The view runs again in a frame it already ran in (alone for input, then under its resized
     // parent): its child windows were detached by that run. A second Begin would only append, at
@@ -220,7 +238,7 @@ struct RetainedCapture {
             parent->child_active = context->ActiveId;
         if (!context->ActiveIdIsAlive && previous_alive == context->ActiveId)
             context->ActiveIdIsAlive = previous_alive;
-        begun_frame = context->FrameCount;
+        begun_frame = context->FrameCount; begun_origin = origin;
         for (int i = layout.ChildWindows.Size; i < window->DC.ChildWindows.Size; ++i)
             detach_child(window->DC.ChildWindows[i]);
         if (parent) parent->handled_children.insert(parent->handled_children.end(), handled_children.begin(), handled_children.end());
