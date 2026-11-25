@@ -638,6 +638,40 @@ cdef class _DrawCmd(object):
         return self._ptr.ElemCount
 
 
+cdef object _wide_color = None
+
+
+def set_wide_color(packer):
+    """Register packer(r, g, b, a) -> ImU32 for the draw list colours outside [0, 1].
+
+    MeltyGUI registers its HDR encoding here (hdr_color.py); without one such a colour is an error.
+    """
+    global _wide_color
+    _wide_color = packer
+
+
+cdef cimgui.ImU32 _color(object col) except? 0:
+    """A draw list colour: (r, g, b) or (r, g, b, a) floats, or an ImU32 that is packed already.
+
+    Inside [0, 1] the floats are packed here: 8 bits a channel, 7 of alpha under the SDR bit.
+    """
+    cdef double r, g, b, a = 1.0
+    cdef int alpha
+    if isinstance(col, int):
+        return <cimgui.ImU32>col
+    r, g, b = col[0], col[1], col[2]
+    if len(col) > 3:
+        a = col[3]
+    if 0.0 <= r <= 1.0 and 0.0 <= g <= 1.0 and 0.0 <= b <= 1.0:
+        alpha = 0 if not a > 0.0 else (127 if a >= 1.0 else <int>(a * 127.0 + 0.5))
+        return (0x80000000U | (<cimgui.ImU32>alpha << 24) | (<cimgui.ImU32>(b * 255.0 + 0.5) << 16)
+                | (<cimgui.ImU32>(g * 255.0 + 0.5) << 8) | <cimgui.ImU32>(r * 255.0 + 0.5))
+    if _wide_color is None:
+        raise ValueError("a colour outside [0, 1] needs set_wide_color")
+    return <cimgui.ImU32>_wide_color(r, g, b, a)
+
+
+
 cdef class _DrawList(object):
     """ Low level drawing API.
 
@@ -754,7 +788,7 @@ cdef class _DrawList(object):
             self,
             float start_x, float start_y,
             float end_x, float end_y,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             float thickness=1.0,
         ):
@@ -790,7 +824,7 @@ cdef class _DrawList(object):
         self._ptr.AddLine(
             _cast_args_ImVec2(start_x, start_y),
             _cast_args_ImVec2(end_x, end_y),
-            col,
+            _color(col),
             thickness,
         )
 
@@ -798,7 +832,7 @@ cdef class _DrawList(object):
             self,
             float upper_left_x, float upper_left_y,
             float lower_right_x, float lower_right_y,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             float rounding = 0.0,
             cimgui.ImDrawFlags flags = 0,
@@ -841,7 +875,7 @@ cdef class _DrawList(object):
         self._ptr.AddRect(
             _cast_args_ImVec2(upper_left_x, upper_left_y),
             _cast_args_ImVec2(lower_right_x, lower_right_y),
-            col,
+            _color(col),
             rounding,
             flags,
             thickness,
@@ -851,7 +885,7 @@ cdef class _DrawList(object):
             self,
             float upper_left_x, float upper_left_y,
             float lower_right_x, float lower_right_y,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             float rounding = 0.0,
             cimgui.ImDrawFlags flags = 0,
@@ -891,7 +925,7 @@ cdef class _DrawList(object):
         self._ptr.AddRectFilled(
             _cast_args_ImVec2(upper_left_x, upper_left_y),
             _cast_args_ImVec2(lower_right_x, lower_right_y),
-            col,
+            _color(col),
             rounding,
             flags
         )
@@ -900,10 +934,10 @@ cdef class _DrawList(object):
             self,
             float upper_left_x, float upper_left_y,
             float lower_right_x, float lower_right_y,
-            cimgui.ImU32 col_upr_left,
-            cimgui.ImU32 col_upr_right,
-            cimgui.ImU32 col_bot_right,
-            cimgui.ImU32 col_bot_left
+            col_upr_left,
+            col_upr_right,
+            col_bot_right,
+            col_bot_left
         ):
         """Add a multicolor filled rectangle to the draw list.
 
@@ -942,10 +976,10 @@ cdef class _DrawList(object):
         self._ptr.AddRectFilledMultiColor(
             _cast_args_ImVec2(upper_left_x, upper_left_y),
             _cast_args_ImVec2(lower_right_x, lower_right_y),
-            col_upr_left,
-            col_upr_right,
-            col_bot_right,
-            col_bot_left
+            _color(col_upr_left),
+            _color(col_upr_right),
+            _color(col_bot_right),
+            _color(col_bot_left)
         )
 
     def add_quad(
@@ -954,7 +988,7 @@ cdef class _DrawList(object):
             float point2_x, float point2_y,
             float point3_x, float point3_y,
             float point4_x, float point4_y,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             float thickness = 1.0
         ):
@@ -998,7 +1032,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(point2_x, point2_y),
             _cast_args_ImVec2(point3_x, point3_y),
             _cast_args_ImVec2(point4_x, point4_y),
-            col,
+            _color(col),
             thickness
         )
 
@@ -1008,7 +1042,7 @@ cdef class _DrawList(object):
             float point2_x, float point2_y,
             float point3_x, float point3_y,
             float point4_x, float point4_y,
-            cimgui.ImU32 col,
+            col,
         ):
         """Add a filled quad to the list.
 
@@ -1048,7 +1082,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(point2_x, point2_y),
             _cast_args_ImVec2(point3_x, point3_y),
             _cast_args_ImVec2(point4_x, point4_y),
-            col
+            _color(col)
         )
 
     def add_triangle(
@@ -1056,7 +1090,7 @@ cdef class _DrawList(object):
             float point1_x, float point1_y,
             float point2_x, float point2_y,
             float point3_x, float point3_y,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             float thickness = 1.0
         ):
@@ -1096,7 +1130,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(point1_x, point1_y),
             _cast_args_ImVec2(point2_x, point2_y),
             _cast_args_ImVec2(point3_x, point3_y),
-            col,
+            _color(col),
             thickness
         )
 
@@ -1105,7 +1139,7 @@ cdef class _DrawList(object):
             float point1_x, float point1_y,
             float point2_x, float point2_y,
             float point3_x, float point3_y,
-            cimgui.ImU32 col,
+            col,
         ):
         """Add a filled triangle to the list.
 
@@ -1141,7 +1175,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(point1_x, point1_y),
             _cast_args_ImVec2(point2_x, point2_y),
             _cast_args_ImVec2(point3_x, point3_y),
-            col
+            _color(col)
         )
 
     def add_bezier_cubic(
@@ -1150,7 +1184,7 @@ cdef class _DrawList(object):
             float point2_x, float point2_y,
             float point3_x, float point3_y,
             float point4_x, float point4_y,
-            cimgui.ImU32 col,
+            col,
             float thickness,
             # note: optional
             int num_segments = 0
@@ -1196,7 +1230,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(point2_x, point2_y),
             _cast_args_ImVec2(point3_x, point3_y),
             _cast_args_ImVec2(point4_x, point4_y),
-            col,
+            _color(col),
             thickness,
             num_segments
         )
@@ -1206,7 +1240,7 @@ cdef class _DrawList(object):
             float point1_x, float point1_y,
             float point2_x, float point2_y,
             float point3_x, float point3_y,
-            cimgui.ImU32 col,
+            col,
             float thickness,
             # note: optional
             int num_segments = 0
@@ -1248,7 +1282,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(point1_x, point1_y),
             _cast_args_ImVec2(point2_x, point2_y),
             _cast_args_ImVec2(point3_x, point3_y),
-            col,
+            _color(col),
             thickness,
             num_segments
         )
@@ -1257,7 +1291,7 @@ cdef class _DrawList(object):
             self,
             float centre_x, float centre_y,
             float radius,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             int num_segments = 0,
             float thickness = 1.0
@@ -1294,7 +1328,7 @@ cdef class _DrawList(object):
         self._ptr.AddCircle(
             _cast_args_ImVec2(centre_x, centre_y),
             radius,
-            col,
+            _color(col),
             num_segments,
             thickness
         )
@@ -1303,7 +1337,7 @@ cdef class _DrawList(object):
             self,
             float centre_x, float centre_y,
             float radius,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             cimgui.ImU32 num_segments = 0
         ):
@@ -1338,7 +1372,7 @@ cdef class _DrawList(object):
         self._ptr.AddCircleFilled(
             _cast_args_ImVec2(centre_x, centre_y),
             radius,
-            col,
+            _color(col),
             num_segments
         )
     
@@ -1346,7 +1380,7 @@ cdef class _DrawList(object):
         self,
         float centre_x, float centre_y,
         float radius, 
-        cimgui.ImU32 col, 
+        col, 
         int num_segments, 
         float thickness = 1.0
     ):
@@ -1381,14 +1415,14 @@ cdef class _DrawList(object):
         """
         self._ptr.AddNgon(
             _cast_args_ImVec2(centre_x, centre_y),
-            radius, col, num_segments, thickness
+            radius, _color(col), num_segments, thickness
         )
     
     def add_ngon_filled(
         self,
         float centre_x, float centre_y,
         float radius, 
-        cimgui.ImU32 col, 
+        col, 
         int num_segments
     ):
         """Draw a regular Ngon
@@ -1420,13 +1454,13 @@ cdef class _DrawList(object):
         """
         self._ptr.AddNgonFilled(
             _cast_args_ImVec2(centre_x, centre_y),
-            radius, col, num_segments
+            radius, _color(col), num_segments
         )
     
     def add_text(
             self,
             float pos_x, float pos_y,
-            cimgui.ImU32 col,
+            col,
             str text
         ):
         """Add text to the draw list.
@@ -1457,7 +1491,7 @@ cdef class _DrawList(object):
         """
         self._ptr.AddText(
             _cast_args_ImVec2(pos_x, pos_y),
-            col,
+            _color(col),
             _bytes(text),
             NULL
         )
@@ -1468,7 +1502,7 @@ cdef class _DrawList(object):
         tuple b,
         tuple uv_a=(0,0),
         tuple uv_b=(1,1),
-        cimgui.ImU32 col=0xffffffff):
+        col=0xffffffff):
         """Add image to the draw list. Aspect ratio is not preserved.
 
         .. visual-example::
@@ -1507,7 +1541,7 @@ cdef class _DrawList(object):
             _cast_tuple_ImVec2(b),
             _cast_tuple_ImVec2(uv_a),
             _cast_tuple_ImVec2(uv_b),
-            col
+            _color(col)
         )
 
     def add_image_rounded(self,
@@ -1516,7 +1550,7 @@ cdef class _DrawList(object):
         tuple b,
         tuple uv_a=(0,0),
         tuple uv_b=(1,1),
-        cimgui.ImU32 col=0xffffffff,
+        col=0xffffffff,
         float rounding = 0.0,
         cimgui.ImDrawFlags flags = 0):
         """Add rounded image to the draw list. Aspect ratio is not preserved.
@@ -1562,7 +1596,7 @@ cdef class _DrawList(object):
             _cast_tuple_ImVec2(b),
             _cast_tuple_ImVec2(uv_a),
             _cast_tuple_ImVec2(uv_b),
-            col,
+            _color(col),
             rounding,
             flags
         )
@@ -1570,7 +1604,7 @@ cdef class _DrawList(object):
     def add_polyline(
             self,
             list points,
-            cimgui.ImU32 col,
+            col,
             cimgui.ImDrawFlags flags = 0,
             float thickness=1.0
         ):
@@ -1611,7 +1645,7 @@ cdef class _DrawList(object):
         self._ptr.AddPolyline(
             pts,
             num_points,
-            col,
+            _color(col),
             flags,
             thickness
         )
@@ -1811,7 +1845,7 @@ cdef class _DrawList(object):
 
     # Path rendering functions
 
-    def path_fill_convex(self, cimgui.ImU32 col):
+    def path_fill_convex(self, col):
         """
 
         Note: Filled shapes must always use clockwise winding order.
@@ -1839,11 +1873,11 @@ cdef class _DrawList(object):
                 ImU32   col
             );
         """
-        self._ptr.PathFillConvex(col)
+        self._ptr.PathFillConvex(_color(col))
 
     def path_stroke(
             self,
-            cimgui.ImU32 col,
+            col,
             # note: optional
             cimgui.ImDrawFlags flags = 0,
             float thickness = 1.0
@@ -1877,7 +1911,7 @@ cdef class _DrawList(object):
             );
         """
         self._ptr.PathStroke(
-            col,
+            _color(col),
             flags,
             thickness
         )
@@ -1938,7 +1972,7 @@ cdef class _DrawList(object):
         """
         self._ptr.PrimUnreserve(idx_count, vtx_count)
     
-    def prim_rect(self, float a_x, float a_y, float b_x, float b_y, cimgui.ImU32 color = 0xFFFFFFFF):
+    def prim_rect(self, float a_x, float a_y, float b_x, float b_y, color = 0xFFFFFFFF):
         """Axis aligned rectangle (2 triangles)
         Reserve primitive space with `prim_rect()` before calling `prim_quad_UV()`.
         Each call to `prim_rect()` is 6 idx and 4 vtx.
@@ -1954,7 +1988,7 @@ cdef class _DrawList(object):
         self._ptr.PrimRect(
             _cast_args_ImVec2(a_x, a_y),
             _cast_args_ImVec2(b_x, b_y),
-            color
+            _color(color)
         )
     
     def prim_rect_UV(
@@ -1963,7 +1997,7 @@ cdef class _DrawList(object):
         float b_x, float b_y,
         float uv_a_u, float uv_a_v,
         float uv_b_u, float uv_b_v,
-        cimgui.ImU32 color = 0xFFFFFFFF
+        color = 0xFFFFFFFF
         ):
         """Axis aligned rectangle (2 triangles) with custom UV coordinates.
         Reserve primitive space with `prim_reserve()` before calling `prim_rect_UV()`.
@@ -1985,7 +2019,7 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(b_x, b_y),
             _cast_args_ImVec2(uv_a_u, uv_a_v),
             _cast_args_ImVec2(uv_b_u, uv_b_v),
-            color
+            _color(color)
         )
     
     def prim_quad_UV(
@@ -1998,7 +2032,7 @@ cdef class _DrawList(object):
         float uv_b_u, float uv_b_v,
         float uv_c_u, float uv_c_v,
         float uv_d_u, float uv_d_v,
-        cimgui.ImU32 color = 0xFFFFFFFF
+        color = 0xFFFFFFFF
         ):
         """Custom quad (2 triangles) with custom UV coordinates.
         Reserve primitive space with `prim_reserve()` before calling `prim_quad_UV()`.
@@ -2028,10 +2062,10 @@ cdef class _DrawList(object):
             _cast_args_ImVec2(uv_b_u, uv_b_v),
             _cast_args_ImVec2(uv_c_u, uv_c_v),
             _cast_args_ImVec2(uv_d_u, uv_d_v),
-            color
+            _color(color)
         )
     
-    def prim_write_vtx(self, float pos_x, float pos_y, float u, float v, cimgui.ImU32 color = 0xFFFFFFFF):
+    def prim_write_vtx(self, float pos_x, float pos_y, float u, float v, color = 0xFFFFFFFF):
         """Write a vertex
         
         Args:
@@ -2045,7 +2079,7 @@ cdef class _DrawList(object):
         self._ptr.PrimWriteVtx(
             _cast_args_ImVec2(pos_x, pos_y),
             _cast_args_ImVec2(u, v),
-            color
+            _color(color)
         )
     
     def prim_write_idx(self, cimgui.ImDrawIdx idx):
@@ -2059,7 +2093,7 @@ cdef class _DrawList(object):
         """
         self._ptr.PrimWriteIdx(idx)
     
-    def prim_vtx(self, float pos_x, float pos_y, float u, float v, cimgui.ImU32 color = 0xFFFFFFFF):
+    def prim_vtx(self, float pos_x, float pos_y, float u, float v, color = 0xFFFFFFFF):
         """Write vertex with unique index
         
         Args:
@@ -2073,7 +2107,7 @@ cdef class _DrawList(object):
         self._ptr.PrimVtx(
             _cast_args_ImVec2(pos_x, pos_y),
             _cast_args_ImVec2(u,v),
-            color
+            _color(color)
         )
     
     @property

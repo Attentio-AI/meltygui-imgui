@@ -68,6 +68,21 @@ buffers)`; a view without a live widget also ends its capture there when
 and then `buffers()`. `buffers()` gives the address and element count of each draw
 list's command, vertex and index buffer, for a renderer that copies them natively.
 
+## Draw list colours
+
+From 2.0.6 every colour of a draw list call is `(r, g, b)` or `(r, g, b, a)` floats;
+a packed `ImU32` is still taken. Inside [0, 1] the floats are packed by the binding
+(8 bits a channel, 7 of alpha under the SDR bit). A colour outside that range goes to
+the packer the host registers once with `set_wide_color(packer)`, called as
+`packer(r, g, b, a) -> ImU32`; MeltyGUI registers its HDR encoding. Without a packer
+such a colour raises `ValueError`.
+
+```python
+draw_list = imgui.get_window_draw_list()
+draw_list.add_rect_filled(0, 0, 120, 40, (0.2, 0.24, 0.3))
+draw_list.add_text(8, 12, (1.0, 1.0, 1.0, 0.8), "label")
+```
+
 ## IntelliJ IDEA / PyCharm
 
 The package ships `.pyi` signatures for its native extensions, including the
